@@ -19,6 +19,7 @@ dev = [
     "pytest-cov>=5.0",
     "ruff>=0.6",
     "mypy>=1.11",
+    "pandas-stubs>=3.0.5.260914",
 ]
 
 [tool.pytest.ini_options]
@@ -30,5 +31,6 @@ line-length = 100
 target-version = "py312"
 
 [tool.mypy]
+allow_redefinition = true
 python_version = "3.12"
 strict = true
