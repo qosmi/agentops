@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from agentops.agents.loop import AgentLoop
 from agentops.llm.fake import FakeLLMProvider
@@ -8,7 +9,7 @@ from agentops.tools.registry import ToolRegistry
 from agentops.tools.resolution_time import ResolutionTimeTool
 
 
-def test_agent_loop_calls_tool_then_finishes() -> None:
+def create_registry() -> ToolRegistry:
     tickets = pd.DataFrame(
         [
             {
@@ -31,10 +32,13 @@ def test_agent_loop_calls_tool_then_finishes() -> None:
     )
 
     registry = ToolRegistry()
+    registry.register(ResolutionTimeTool(tickets))
 
-    registry.register(
-        ResolutionTimeTool(tickets)
-    )
+    return registry
+
+
+def test_agent_loop_calls_tool_then_finishes() -> None:
+    registry = create_registry()
 
     llm = FakeLLMProvider(
         responses=[
@@ -43,9 +47,7 @@ def test_agent_loop_calls_tool_then_finishes() -> None:
                 tool_calls=[
                     ToolCall(
                         tool_name="get_resolution_time",
-                        arguments={
-                            "group_by": "product"
-                        },
+                        arguments={"group_by": "product"},
                     )
                 ],
             ),
@@ -65,36 +67,20 @@ def test_agent_loop_calls_tool_then_finishes() -> None:
 
     result = agent.run(
         system_prompt="You are a business analyst.",
-        user_message=(
-            "Why did resolution time increase?"
-        ),
+        user_message="Why did resolution time increase?",
     )
 
     assert "6 hours" in result
     assert llm.call_count == 2
 
 
-def test_agent_loop_updates_conversation_between_iterations() -> None:
-    tickets = pd.DataFrame(
-        [
-            {
-                "ticket_id": "1",
-                "created_at": "2026-08-01T10:00:00",
-                "closed_at": "2026-08-01T14:00:00",
-                "product": "payments",
-                "category": "bug",
-                "priority": "high",
-            },
-        ]
-    )
-
-    registry = ToolRegistry()
-    registry.register(ResolutionTimeTool(tickets))
+def test_agent_loop_stops_after_max_iterations() -> None:
+    registry = create_registry()
 
     llm = FakeLLMProvider(
         responses=[
             AgentResponse(
-                message="I need data.",
+                message="I need more data.",
                 tool_calls=[
                     ToolCall(
                         tool_name="get_resolution_time",
@@ -103,7 +89,13 @@ def test_agent_loop_updates_conversation_between_iterations() -> None:
                 ],
             ),
             AgentResponse(
-                message="The investigation is complete."
+                message="I still need more data.",
+                tool_calls=[
+                    ToolCall(
+                        tool_name="get_resolution_time",
+                        arguments={"group_by": "product"},
+                    )
+                ],
             ),
         ]
     )
@@ -111,12 +103,38 @@ def test_agent_loop_updates_conversation_between_iterations() -> None:
     agent = AgentLoop(
         llm=llm,
         tools=registry,
+        max_iterations=2,
     )
 
-    result = agent.run(
-        system_prompt="You are a business analyst.",
-        user_message="Why did resolution time increase?",
-    )
+    with pytest.raises(
+        RuntimeError,
+        match="maximum iterations: 2",
+    ):
+        agent.run(
+            system_prompt="You are a business analyst.",
+            user_message="Investigate the problem.",
+        )
 
-    assert result == "The investigation is complete."
     assert llm.call_count == 2
+
+
+def test_agent_loop_rejects_invalid_max_iterations() -> None:
+    llm = FakeLLMProvider(
+        responses=[
+            AgentResponse(
+                message="Done.",
+            ),
+        ]
+    )
+
+    registry = ToolRegistry()
+
+    with pytest.raises(
+        ValueError,
+        match="max_iterations must be at least 1",
+    ):
+        AgentLoop(
+            llm=llm,
+            tools=registry,
+            max_iterations=0,
+        )

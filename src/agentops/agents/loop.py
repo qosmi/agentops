@@ -11,9 +11,14 @@ class AgentLoop:
         self,
         llm: LLMProvider,
         tools: ToolRegistry,
+        max_iterations: int = 5,
     ) -> None:
+        if max_iterations < 1:
+            raise ValueError("max_iterations must be at least 1")
+
         self.llm = llm
         self.tools = tools
+        self.max_iterations = max_iterations
 
     def run(
         self,
@@ -30,7 +35,7 @@ class AgentLoop:
             ],
         )
 
-        while True:
+        while state.iteration < self.max_iterations:
             response: AgentResponse = self.llm.generate(
                 system_prompt=state.system_prompt,
                 messages=state.messages,
@@ -66,3 +71,7 @@ class AgentLoop:
 
             state.final_answer = response.message
             return state.final_answer
+
+        raise RuntimeError(
+            f"Agent exceeded maximum iterations: {self.max_iterations}"
+        )
