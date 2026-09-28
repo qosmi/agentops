@@ -94,6 +94,7 @@ def test_agent_loop_rejects_disallowed_tool() -> None:
         llm=llm,
         tools=registry,
         config=AgentConfig(
+            max_iterations=5,
             allowed_tools={"get_resolution_time"},
         ),
     )

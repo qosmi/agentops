@@ -1,19 +1,16 @@
-from agentops.llm.base import LLMProvider
+from agentops.agents.loop import AgentLoop
 
 
 class AnalystAgent:
-    def __init__(self, llm: LLMProvider) -> None:
-        self.llm = llm
+    def __init__(self, agent_loop: AgentLoop) -> None:
+        self.agent_loop = agent_loop
 
     def analyze(self, question: str) -> str:
-        response = self.llm.generate(
-            system_prompt="You are a business analyst.",
-            messages=[
-                {
-                    "role": "user",
-                    "content": question,
-                }
-            ],
+        return self.agent_loop.run(
+            system_prompt=(
+                "You are a business analyst. "
+                "Use the available analytical tools to investigate "
+                "the user's question and provide a concise evidence-based answer."
+            ),
+            user_message=question,
         )
-
-        return response.message

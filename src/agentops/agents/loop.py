@@ -2,9 +2,9 @@ from typing import Any
 
 from agentops.llm.base import LLMProvider
 from agentops.models.agent_config import AgentConfig
-from agentops.models.agent_observation import AgentObservation
 from agentops.models.agent_response import AgentResponse
 from agentops.models.agent_state import AgentState
+from agentops.models.tool_definition import ToolDefinition
 from agentops.tools.registry import ToolRegistry
 
 
@@ -18,9 +18,6 @@ class AgentLoop:
         self.llm = llm
         self.tools = tools
         self.config = config or AgentConfig()
-
-        if self.config.max_iterations < 1:
-            raise ValueError("max_iterations must be at least 1")
 
     def run(
         self,
@@ -37,20 +34,27 @@ class AgentLoop:
             ],
         )
 
+        tool_definitions = [
+            ToolDefinition(
+                name=tool.name,
+                description=tool.description,
+            )
+            for tool in self.tools.list()
+            if tool.name in self.config.allowed_tools
+        ]
+
         while state.iteration < self.config.max_iterations:
             response: AgentResponse = self.llm.generate(
                 system_prompt=state.system_prompt,
                 messages=state.messages,
+                tools=tool_definitions,
             )
 
             state.iteration += 1
 
             if response.tool_calls:
                 for tool_call in response.tool_calls:
-                    if (
-                        tool_call.tool_name
-                        not in self.config.allowed_tools
-                    ):
+                    if tool_call.tool_name not in self.config.allowed_tools:
                         raise PermissionError(
                             f"Tool not allowed: {tool_call.tool_name}"
                         )
@@ -59,15 +63,6 @@ class AgentLoop:
 
                     result: Any = tool.execute(
                         tool_call.arguments
-                    )
-
-                    state.observations.append(
-                        AgentObservation(
-                            iteration=state.iteration,
-                            tool_name=tool_call.tool_name,
-                            arguments=tool_call.arguments,
-                            result=result,
-                        )
                     )
 
                     state.messages.append(
@@ -90,5 +85,6 @@ class AgentLoop:
             return state.final_answer
 
         raise RuntimeError(
-            "Agent exceeded maximum iterations: {self.config.max_iterations}"
+            f"Agent exceeded maximum iterations: "
+            f"{self.config.max_iterations}"
         )
