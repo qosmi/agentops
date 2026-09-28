@@ -1,7 +1,6 @@
 import pandas as pd
 import pandera.pandas as pa
 
-
 ticket_schema = pa.DataFrameSchema(
     {
         "ticket_id": pa.Column(str, unique=True),

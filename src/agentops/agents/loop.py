@@ -2,6 +2,7 @@ from typing import Any
 
 from agentops.llm.base import LLMProvider
 from agentops.models.agent_response import AgentResponse
+from agentops.models.agent_state import AgentState
 from agentops.tools.registry import ToolRegistry
 
 
@@ -19,18 +20,23 @@ class AgentLoop:
         system_prompt: str,
         user_message: str,
     ) -> str:
-        messages: list[dict[str, str]] = [
-            {
-                "role": "user",
-                "content": user_message,
-            }
-        ]
+        state = AgentState(
+            system_prompt=system_prompt,
+            messages=[
+                {
+                    "role": "user",
+                    "content": user_message,
+                }
+            ],
+        )
 
         while True:
             response: AgentResponse = self.llm.generate(
-                system_prompt=system_prompt,
-                messages=messages,
+                system_prompt=state.system_prompt,
+                messages=state.messages,
             )
+
+            state.iteration += 1
 
             if response.tool_calls:
                 for tool_call in response.tool_calls:
@@ -42,14 +48,14 @@ class AgentLoop:
                         tool_call.arguments
                     )
 
-                    messages.append(
+                    state.messages.append(
                         {
                             "role": "assistant",
                             "content": response.message,
                         }
                     )
 
-                    messages.append(
+                    state.messages.append(
                         {
                             "role": "tool",
                             "content": str(result),
@@ -58,4 +64,5 @@ class AgentLoop:
 
                 continue
 
-            return response.message
+            state.final_answer = response.message
+            return state.final_answer
