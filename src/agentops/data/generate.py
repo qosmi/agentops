@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import csv
 import random
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -42,7 +42,7 @@ def generate_tickets(
 
     tickets: list[dict[str, object]] = []
 
-    start = datetime(2026, 7, 1)
+    start = datetime(2026, 7, 1, tzinfo=UTC)
 
     for _ in range(count):
         created_at = start + timedelta(

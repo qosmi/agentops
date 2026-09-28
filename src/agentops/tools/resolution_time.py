@@ -26,7 +26,7 @@ class ResolutionTimeTool(Tool):
         group_by = arguments.get("group_by")
 
         if not isinstance(group_by, str):
-            raise ValueError(
+            raise TypeError(
                 "group_by must be a string"
             )
 

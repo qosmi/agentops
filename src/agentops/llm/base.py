@@ -1,11 +1,13 @@
 from abc import ABC, abstractmethod
 
+from agentops.models.agent_response import AgentResponse
+
 
 class LLMProvider(ABC):
     @abstractmethod
     def generate(
         self,
         system_prompt: str,
-        user_prompt: str,
-    ) -> str:
+        messages: list[dict[str, str]],
+    ) -> AgentResponse:
         raise NotImplementedError

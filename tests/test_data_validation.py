@@ -1,4 +1,5 @@
 import pandas as pd
+import pandera as pa
 import pytest
 
 from agentops.data.validation import validate_tickets
@@ -39,5 +40,5 @@ def test_invalid_product_is_rejected() -> None:
         ]
     )
 
-    with pytest.raises(Exception):
+    with pytest.raises(pa.errors.SchemaError):
         validate_tickets(df)

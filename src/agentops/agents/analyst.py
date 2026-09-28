@@ -6,15 +6,14 @@ class AnalystAgent:
         self.llm = llm
 
     def analyze(self, question: str) -> str:
-        system_prompt = """
-You are a business data analyst.
-
-Analyze the user's question carefully.
-Do not invent data.
-If evidence is unavailable, say so.
-""".strip()
-
-        return self.llm.generate(
-            system_prompt=system_prompt,
-            user_prompt=question,
+        response = self.llm.generate(
+            system_prompt="You are a business analyst.",
+            messages=[
+                {
+                    "role": "user",
+                    "content": question,
+                }
+            ],
         )
+
+        return response.message
