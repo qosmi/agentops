@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 
 from agentops.models.agent_observation import AgentObservation
+from agentops.models.evidence import Evidence
 
 
 class AgentState(BaseModel):
@@ -9,3 +10,4 @@ class AgentState(BaseModel):
     iteration: int = 0
     final_answer: str | None = None
     observations: list[AgentObservation] = Field(default_factory=list)
+    evidence: list[Evidence] = Field(default_factory=list)

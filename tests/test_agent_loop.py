@@ -107,3 +107,41 @@ def test_agent_loop_rejects_disallowed_tool() -> None:
             system_prompt="You are a business analyst.",
             user_message="Send the report.",
         )
+
+
+def test_agent_loop_records_evidence() -> None:
+    registry = create_registry()
+
+    llm = FakeLLMProvider(
+        responses=[
+            AgentResponse(
+                message="I need to inspect resolution time.",
+                tool_calls=[
+                    ToolCall(
+                        tool_name="get_resolution_time",
+                        arguments={"group_by": "product"},
+                    )
+                ],
+            ),
+            AgentResponse(
+                message="The payments product has an average resolution time of 6 hours.",
+            ),
+        ]
+    )
+
+    agent = AgentLoop(
+        llm=llm,
+        tools=registry,
+        config=AgentConfig(
+            max_iterations=5,
+            allowed_tools={"get_resolution_time"},
+        ),
+    )
+
+    result = agent.run(
+        system_prompt="You are a business analyst.",
+        user_message="Why did resolution time increase?",
+    )
+
+    assert "6 hours" in result
+    assert llm.call_count == 2

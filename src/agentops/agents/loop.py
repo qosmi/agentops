@@ -2,8 +2,10 @@ from typing import Any
 
 from agentops.llm.base import LLMProvider
 from agentops.models.agent_config import AgentConfig
+from agentops.models.agent_observation import AgentObservation
 from agentops.models.agent_response import AgentResponse
 from agentops.models.agent_state import AgentState
+from agentops.models.evidence import Evidence
 from agentops.models.tool_definition import ToolDefinition
 from agentops.tools.registry import ToolRegistry
 
@@ -63,6 +65,22 @@ class AgentLoop:
 
                     result: Any = tool.execute(
                         tool_call.arguments
+                    )
+
+                    observation = AgentObservation(
+                        iteration=state.iteration,
+                        tool_name=tool_call.tool_name,
+                        arguments=tool_call.arguments,
+                        result=result,
+                    )
+
+                    state.observations.append(observation)
+
+                    state.evidence.append(
+                        Evidence(
+                            source=tool_call.tool_name,
+                            value=result,
+                        )
                     )
 
                     state.messages.append(
