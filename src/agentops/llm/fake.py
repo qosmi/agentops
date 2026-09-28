@@ -18,7 +18,9 @@ class FakeLLMProvider(LLMProvider):
         self.received_tools.append(tools)
 
         if self.call_count >= len(self.responses):
-            raise RuntimeError("FakeLLMProvider ran out of responses")
+            raise RuntimeError(
+                "FakeLLMProvider ran out of responses"
+            )
 
         response = self.responses[self.call_count]
         self.call_count += 1

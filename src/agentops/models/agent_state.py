@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from agentops.models.agent_observation import AgentObservation
 from agentops.models.evidence import Evidence
 from agentops.models.investigation_state import InvestigationState
+from agentops.models.llm_usage import LLMUsage
 
 
 class AgentState(BaseModel):
@@ -13,3 +14,4 @@ class AgentState(BaseModel):
     observations: list[AgentObservation] = Field(default_factory=list)
     evidence: list[Evidence] = Field(default_factory=list)
     investigation_state: InvestigationState = InvestigationState.CREATED
+    llm_usage: LLMUsage = Field(default_factory=LLMUsage)
