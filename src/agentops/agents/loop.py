@@ -1,6 +1,7 @@
 from typing import Any
 
 from agentops.llm.base import LLMProvider
+from agentops.models.agent_config import AgentConfig
 from agentops.models.agent_response import AgentResponse
 from agentops.models.agent_state import AgentState
 from agentops.tools.registry import ToolRegistry
@@ -11,14 +12,14 @@ class AgentLoop:
         self,
         llm: LLMProvider,
         tools: ToolRegistry,
-        max_iterations: int = 5,
+        config: AgentConfig | None = None,
     ) -> None:
-        if max_iterations < 1:
-            raise ValueError("max_iterations must be at least 1")
-
         self.llm = llm
         self.tools = tools
-        self.max_iterations = max_iterations
+        self.config = config or AgentConfig()
+
+        if self.config.max_iterations < 1:
+            raise ValueError("max_iterations must be at least 1")
 
     def run(
         self,
@@ -35,7 +36,7 @@ class AgentLoop:
             ],
         )
 
-        while state.iteration < self.max_iterations:
+        while state.iteration < self.config.max_iterations:
             response: AgentResponse = self.llm.generate(
                 system_prompt=state.system_prompt,
                 messages=state.messages,
@@ -45,9 +46,15 @@ class AgentLoop:
 
             if response.tool_calls:
                 for tool_call in response.tool_calls:
-                    tool = self.tools.get(
+                    if (
                         tool_call.tool_name
-                    )
+                        not in self.config.allowed_tools
+                    ):
+                        raise PermissionError(
+                            f"Tool not allowed: {tool_call.tool_name}"
+                        )
+
+                    tool = self.tools.get(tool_call.tool_name)
 
                     result: Any = tool.execute(
                         tool_call.arguments
@@ -73,5 +80,5 @@ class AgentLoop:
             return state.final_answer
 
         raise RuntimeError(
-            f"Agent exceeded maximum iterations: {self.max_iterations}"
+            "Agent exceeded maximum iterations: {self.config.max_iterations}"
         )

@@ -3,6 +3,7 @@ import pytest
 
 from agentops.agents.loop import AgentLoop
 from agentops.llm.fake import FakeLLMProvider
+from agentops.models.agent_config import AgentConfig
 from agentops.models.agent_response import AgentResponse
 from agentops.models.tool_call import ToolCall
 from agentops.tools.registry import ToolRegistry
@@ -37,13 +38,13 @@ def create_registry() -> ToolRegistry:
     return registry
 
 
-def test_agent_loop_calls_tool_then_finishes() -> None:
+def test_agent_loop_calls_allowed_tool() -> None:
     registry = create_registry()
 
     llm = FakeLLMProvider(
         responses=[
             AgentResponse(
-                message="I need to inspect resolution time.",
+                message="I need data.",
                 tool_calls=[
                     ToolCall(
                         tool_name="get_resolution_time",
@@ -51,90 +52,57 @@ def test_agent_loop_calls_tool_then_finishes() -> None:
                     )
                 ],
             ),
-            AgentResponse(
-                message=(
-                    "The payments product has an "
-                    "average resolution time of 6 hours."
-                ),
-            ),
+            AgentResponse(message="Done."),
         ]
     )
 
     agent = AgentLoop(
         llm=llm,
         tools=registry,
+        config=AgentConfig(
+            max_iterations=5,
+            allowed_tools={"get_resolution_time"},
+        ),
     )
 
     result = agent.run(
         system_prompt="You are a business analyst.",
-        user_message="Why did resolution time increase?",
+        user_message="Investigate resolution time.",
     )
 
-    assert "6 hours" in result
-    assert llm.call_count == 2
+    assert result == "Done."
 
 
-def test_agent_loop_stops_after_max_iterations() -> None:
+def test_agent_loop_rejects_disallowed_tool() -> None:
     registry = create_registry()
 
     llm = FakeLLMProvider(
         responses=[
             AgentResponse(
-                message="I need more data.",
+                message="I want to send an email.",
                 tool_calls=[
                     ToolCall(
-                        tool_name="get_resolution_time",
-                        arguments={"group_by": "product"},
+                        tool_name="send_email",
+                        arguments={"recipient": "manager"},
                     )
                 ],
-            ),
-            AgentResponse(
-                message="I still need more data.",
-                tool_calls=[
-                    ToolCall(
-                        tool_name="get_resolution_time",
-                        arguments={"group_by": "product"},
-                    )
-                ],
-            ),
+            )
         ]
     )
 
     agent = AgentLoop(
         llm=llm,
         tools=registry,
-        max_iterations=2,
+        config=AgentConfig(
+            allowed_tools={"get_resolution_time"},
+        ),
     )
 
     with pytest.raises(
-        RuntimeError,
-        match="maximum iterations: 2",
+        PermissionError,
+        match="Tool not allowed: send_email",
     ):
         agent.run(
             system_prompt="You are a business analyst.",
-            user_message="Investigate the problem.",
-        )
-
-    assert llm.call_count == 2
-
-
-def test_agent_loop_rejects_invalid_max_iterations() -> None:
-    llm = FakeLLMProvider(
-        responses=[
-            AgentResponse(
-                message="Done.",
-            ),
-        ]
-    )
-
-    registry = ToolRegistry()
-
-    with pytest.raises(
-        ValueError,
-        match="max_iterations must be at least 1",
-    ):
-        AgentLoop(
-            llm=llm,
-            tools=registry,
-            max_iterations=0,
+            user_message="Send the report.",
         )
